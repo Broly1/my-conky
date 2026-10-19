@@ -2,7 +2,7 @@
 Type=Application
 Name=Conky System Monitor
 Comment=Wayland system monitor on the right edge of DP-1
-Exec=sh -c '$HOME/.config/conky/start-conky.sh'
+Exec=/home/broly/.config/conky/start-conky.sh
 Icon=utilities-system-monitor
 Terminal=false
 StartupNotify=false
