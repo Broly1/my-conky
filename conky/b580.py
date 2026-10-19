@@ -3,6 +3,11 @@ import os
 import glob
 import time
 
+# conky calls this script once per field every refresh; cache the result so
+# the sysfs/fdinfo scan and power sampling only happen once per interval.
+CACHE = os.path.join(os.environ.get('XDG_RUNTIME_DIR', '/tmp'), 'conky-b580')
+CACHE_TTL = 1.5
+
 def get_b580_hwmon():
     for card in glob.glob('/sys/class/drm/card*'):
         dev = os.path.join(card, 'device')
@@ -36,10 +41,28 @@ def read_temp(hw, sensor_inputs):
     return "N/A"
 
 def main():
+    try:
+        if time.time() - os.path.getmtime(CACHE) < CACHE_TTL:
+            with open(CACHE) as f:
+                print(f.read(), end='')
+            return
+    except OSError:
+        pass
+
+    line = collect()
+    try:
+        tmp = f"{CACHE}.{os.getpid()}"
+        with open(tmp, 'w') as f:
+            f.write(line + '\n')
+        os.replace(tmp, CACHE)
+    except OSError:
+        pass
+    print(line)
+
+def collect():
     dev, hw = get_b580_hwmon()
     if not hw:
-        print("N/A|N/A|N/A|N/A|12.0 GiB|12.0 GiB")
-        return
+        return "N/A|N/A|N/A|N/A|12.0 GiB|12.0 GiB"
 
     # GPU Core Temp: try temp1_input (GT Core) first, fallback to temp2_input (Package)
     temp = read_temp(hw, ['temp1_input', 'temp2_input'])
@@ -85,7 +108,7 @@ def main():
             continue
 
     vram_used = f"{vram_kib / 1048576:.1f} GiB"
-    print(f"{temp}|{vram_temp}|{clock}|{power}|{vram_used}|12.0 GiB")
+    return f"{temp}|{vram_temp}|{clock}|{power}|{vram_used}|12.0 GiB"
 
 if __name__ == '__main__':
     main()
